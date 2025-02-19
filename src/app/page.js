@@ -20,7 +20,6 @@ import Grid from '@mui/material/Grid2';
 import { CategoryTabs } from '../models/CategoryTabs';
 import { Sidebar } from '../models/Sidebar';
 import { OutputSection } from '../models/OutputSection';
-import { OptionSwitches } from '../models/OptionSwitches';
 
 function App() {
   return (
@@ -42,10 +41,7 @@ function App() {
         </Grid>
       </Grid>
 
-      {/* 第二行：开关选项 */}
-      <OptionSwitches />
-
-      {/* 第三行：主内容区域 */}
+      {/* 第二行：主内容区域 */}
       <Grid container spacing={0.5} sx={{ flex: 1, minHeight: 0 }}>
         {/* 左侧分类标签页 */}
         <Grid size={{ xs: 12, md: 8 }} sx={{ height: '100%' }}>

@@ -10,7 +10,7 @@ export const OutputSection = () => (
   {/* Tag 选择 + 输出区域 */}
   <Grid container spacing={0.5}>
     <Grid size={{ xs: 12, md: 8 }}>
-      <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Card sx={{ height: 250, display: 'flex', flexDirection: 'column' }}>
         <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
           <Box
             sx={{
@@ -19,7 +19,7 @@ export const OutputSection = () => (
               border: '1px dashed grey',
               borderRadius: 1,
               overflow: 'auto',
-              minHeight: 150,
+              minHeight: 200,
             }}
           >
             <Typography variant="body2" color="textSecondary">
@@ -35,7 +35,8 @@ export const OutputSection = () => (
           <TextField
             fullWidth
             multiline
-            minRows={4}
+            minRows={5}
+            maxRows={5}
             placeholder="这里是调整后的词条输出"
             sx={{ flex: 1 }}
           />
@@ -45,6 +46,9 @@ export const OutputSection = () => (
             </Button>
             <Button variant="contained" color="error" fullWidth>
               清空 Clear
+            </Button>
+            <Button variant="contained" color="info" fullWidth>
+              切换加权符号
             </Button>
           </Box>
         </CardContent>

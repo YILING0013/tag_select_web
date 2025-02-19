@@ -16,8 +16,10 @@ import {
 export const CategoryTabs = () => {
   const [categoryTab, setCategoryTab] = React.useState(0);
   const [jsonFiles, setJsonFiles] = React.useState([]);
+  const [jsonKeys, setJsonKeys] = React.useState([]);
   const [jsonData, setJsonData] = React.useState({});
   const [loading, setLoading] = React.useState(false);
+  const [expanded, setExpanded] = React.useState(null); // 用于控制哪些折叠栏展开
 
   // 读取json文件列表
   React.useEffect(() => {
@@ -36,15 +38,32 @@ export const CategoryTabs = () => {
     fetchJsonFiles();
   }, []);
 
-  // 加载点击的JSON文件
-  const loadJsonFile = async (fileName) => {
+  // 加载选项卡的字典键
+  const loadJsonKeys = async (fileName) => {
     setLoading(true);
     try {
-      const response = await fetch(`http://127.0.0.1:5000/api/json-files/${fileName}`);
-      const data = await response.json();
-      setJsonData(data);
+      const response = await fetch(`http://127.0.0.1:5000/api/json-files/${fileName}/keys`);
+      const keys = await response.json();
+      setJsonKeys(keys);
     } catch (error) {
-      console.error('Error loading JSON data:', error);
+      console.error('Error loading JSON keys:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 加载特定字典的内容
+  const loadJsonKeyContent = async (fileName, key) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`http://127.0.0.1:5000/api/json-files/${fileName}/keys/${key}`);
+      const data = await response.json();
+      setJsonData((prevData) => ({
+        ...prevData,
+        [key]: data,
+      }));
+    } catch (error) {
+      console.error('Error loading JSON key content:', error);
     } finally {
       setLoading(false);
     }
@@ -53,48 +72,28 @@ export const CategoryTabs = () => {
   // 选项卡切换事件
   const handleCategoryTabChange = (event, newValue) => {
     setCategoryTab(newValue);
-    loadJsonFile(jsonFiles[newValue]);
+    setJsonData({}); // 清空已加载的数据
+    loadJsonKeys(jsonFiles[newValue]);
   };
 
-  // 生成标签内容，只接收一个参数
-  const renderAccordion = (data) => {
-    return Object.keys(data).map((key) => (
-      <Accordion key={key}>
-        <AccordionSummary>
-          <Typography variant="body1">{key}</Typography>
-        </AccordionSummary>
-        <AccordionDetails>
-          <Box
-            sx={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 1, // 标签之间的间距
-            }}
-          >
-            {Object.entries(data[key]).map(([enLabel, cnLabel]) => (
-              <Chip
-                key={enLabel}
-                label={`${cnLabel} (${enLabel})`}
-                variant="outlined"
-                size="small"
-              />
-            ))}
-          </Box>
-        </AccordionDetails>
-      </Accordion>
-    ));
+  // 处理折叠栏展开事件
+  const handleAccordionChange = (key) => {
+    setExpanded(expanded === key ? null : key); // 切换展开或折叠
+    if (!jsonData[key]) {
+      loadJsonKeyContent(jsonFiles[categoryTab], key);
+    }
   };
 
-  // 默认加载第一个选项卡的数据
+  // 默认加载第一个选项卡的字典键
   React.useEffect(() => {
     if (jsonFiles.length > 0) {
-      loadJsonFile(jsonFiles[0]);
+      loadJsonKeys(jsonFiles[0]);
     }
   }, [jsonFiles]);
 
   return (
     <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 0 }}>
+      <CardContent sx={{ flex: 1, display: 'flex', minHeight: 300, flexDirection: 'column', p: 0 }}>
         <Tabs
           value={categoryTab}
           onChange={handleCategoryTabChange}
@@ -110,17 +109,49 @@ export const CategoryTabs = () => {
           sx={{
             flex: 1,
             p: 2,
-            overflow: 'auto',
             borderTop: '1px solid',
             borderColor: 'divider',
+            overflowY: 'auto',
           }}
         >
           {loading ? (
             <CircularProgress />
           ) : (
             <>
-              {Object.keys(jsonData).length > 0 ? (
-                renderAccordion(jsonData)
+              {jsonKeys.length > 0 ? (
+                jsonKeys.map((key) => (
+                  <Accordion
+                    key={key}
+                    expanded={expanded === key} // 只展开当前折叠栏
+                    onChange={() => handleAccordionChange(key)}
+                  >
+                    <AccordionSummary>
+                      <Typography variant="body1">{key}</Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          gap: 1, // 标签之间的间距
+                        }}
+                      >
+                        {jsonData[key] ? (
+                          Object.entries(jsonData[key]).map(([enLabel, cnLabel]) => (
+                            <Chip
+                              key={enLabel}
+                              label={`${cnLabel} (${enLabel})`}
+                              variant="outlined"
+                              size="small"
+                            />
+                          ))
+                        ) : (
+                          <CircularProgress size={20} />
+                        )}
+                      </Box>
+                    </AccordionDetails>
+                  </Accordion>
+                ))
               ) : (
                 <Typography variant="body2">请选择一个选项卡</Typography>
               )}
