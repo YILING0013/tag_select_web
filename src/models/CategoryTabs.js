@@ -10,18 +10,22 @@ import {
   AccordionSummary,
   AccordionDetails,
   Chip,
+  Menu,
+  MenuItem,
   CircularProgress,
 } from '@mui/material';
 
-export const CategoryTabs = () => {
+export const CategoryTabs = (props) => {
   const [categoryTab, setCategoryTab] = React.useState(0);
   const [jsonFiles, setJsonFiles] = React.useState([]);
   const [jsonKeys, setJsonKeys] = React.useState([]);
   const [jsonData, setJsonData] = React.useState({});
   const [loading, setLoading] = React.useState(false);
-  const [expanded, setExpanded] = React.useState(null); // 用于控制哪些折叠栏展开
+  const [expanded, setExpanded] = React.useState(null);
+  const [anchorEl, setAnchorEl] = React.useState(null);
+  const [selectedLabel, setSelectedLabel] = React.useState(null);
 
-  // 读取json文件列表
+  // 读取 JSON 文件列表
   React.useEffect(() => {
     async function fetchJsonFiles() {
       setLoading(true);
@@ -72,13 +76,13 @@ export const CategoryTabs = () => {
   // 选项卡切换事件
   const handleCategoryTabChange = (event, newValue) => {
     setCategoryTab(newValue);
-    setJsonData({}); // 清空已加载的数据
+    setJsonData({});
     loadJsonKeys(jsonFiles[newValue]);
   };
 
   // 处理折叠栏展开事件
   const handleAccordionChange = (key) => {
-    setExpanded(expanded === key ? null : key); // 切换展开或折叠
+    setExpanded(expanded === key ? null : key);
     if (!jsonData[key]) {
       loadJsonKeyContent(jsonFiles[categoryTab], key);
     }
@@ -90,6 +94,22 @@ export const CategoryTabs = () => {
       loadJsonKeys(jsonFiles[0]);
     }
   }, [jsonFiles]);
+
+  const handleRightClick = (event, enLabel) => {
+    event.preventDefault(); // 打开右键菜单
+    setSelectedLabel(enLabel);
+    setAnchorEl(event.currentTarget); // 打开菜单
+  };
+
+  const handleMenuItemClick = (enLabel) => {
+    const danbooruUrl = `https://danbooru.donmai.us/posts?tags=${enLabel}`;
+    window.open(danbooruUrl, '_blank');
+    setAnchorEl(null); // 关闭菜单
+  };
+
+  const handleCloseMenu = () => {
+    setAnchorEl(null);
+  };
 
   return (
     <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -122,7 +142,7 @@ export const CategoryTabs = () => {
                 jsonKeys.map((key) => (
                   <Accordion
                     key={key}
-                    expanded={expanded === key} // 只展开当前折叠栏
+                    expanded={expanded === key}
                     onChange={() => handleAccordionChange(key)}
                   >
                     <AccordionSummary>
@@ -133,7 +153,7 @@ export const CategoryTabs = () => {
                         sx={{
                           display: 'flex',
                           flexWrap: 'wrap',
-                          gap: 1, // 标签之间的间距
+                          gap: 1,
                         }}
                       >
                         {jsonData[key] ? (
@@ -143,6 +163,17 @@ export const CategoryTabs = () => {
                               label={`${cnLabel} (${enLabel})`}
                               variant="outlined"
                               size="small"
+                              onClick={() => {
+                                if (props.onAddTag) {
+                                  props.onAddTag({
+                                    cnText: cnLabel,
+                                    originalEnText: enLabel,
+                                    curlyCount: 0,
+                                    squareCount: 0,
+                                  });
+                                }
+                              }}
+                              onContextMenu={(event) => handleRightClick(event, enLabel)}
                             />
                           ))
                         ) : (
@@ -159,6 +190,22 @@ export const CategoryTabs = () => {
           )}
         </Box>
       </CardContent>
+
+      {/* Custom Context Menu */}
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={handleCloseMenu}
+        MenuListProps={{
+          'aria-labelledby': 'basic-button',
+        }}
+      >
+        <MenuItem onClick={() => handleMenuItemClick(selectedLabel)}>
+          在Danbooru上预览
+        </MenuItem>
+      </Menu>
     </Card>
   );
 };
+
+export default CategoryTabs;
