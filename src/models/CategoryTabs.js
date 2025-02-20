@@ -30,7 +30,7 @@ export const CategoryTabs = (props) => {
     async function fetchJsonFiles() {
       setLoading(true);
       try {
-        const response = await fetch('http://127.0.0.1:5000/api/json-files');
+        const response = await fetch('/api/json-files');
         const files = await response.json();
         setJsonFiles(files);
       } catch (error) {
@@ -46,7 +46,7 @@ export const CategoryTabs = (props) => {
   const loadJsonKeys = async (fileName) => {
     setLoading(true);
     try {
-      const response = await fetch(`http://127.0.0.1:5000/api/json-files/${fileName}/keys`);
+      const response = await fetch(`/api/json-files/${fileName}/keys`);
       const keys = await response.json();
       setJsonKeys(keys);
     } catch (error) {
@@ -60,7 +60,7 @@ export const CategoryTabs = (props) => {
   const loadJsonKeyContent = async (fileName, key) => {
     setLoading(true);
     try {
-      const response = await fetch(`http://127.0.0.1:5000/api/json-files/${fileName}/keys/${key}`);
+      const response = await fetch(`/api/json-files/${fileName}/keys/${key}`);
       const data = await response.json();
       setJsonData((prevData) => ({
         ...prevData,

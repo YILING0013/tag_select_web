@@ -1,3 +1,4 @@
+//page.js
 "use client";
 
 import * as React from 'react';
@@ -88,7 +89,7 @@ function App() {
 
         {/* 右侧侧边栏 */}
         <Grid size={{ xs: 12, md: 4 }} sx={{ height: '100%' }}>
-          <Sidebar />
+          <Sidebar onAddTag={handleAddTag}/>
         </Grid>
       </Grid>
     </Container>
