@@ -102,6 +102,8 @@ export const CategoryTabs = (props) => {
   };
 
   const handleMenuItemClick = (enLabel) => {
+    //替换空格为_号
+    enLabel = enLabel.replace(/ /g, '_');
     const danbooruUrl = `https://danbooru.donmai.us/posts?tags=${enLabel}`;
     window.open(danbooruUrl, '_blank');
     setAnchorEl(null); // 关闭菜单
@@ -113,7 +115,7 @@ export const CategoryTabs = (props) => {
 
   return (
     <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <CardContent sx={{ flex: 1, display: 'flex', minHeight: 300, flexDirection: 'column', p: 0 }}>
+      <CardContent sx={{height: '100%', display: 'flex', flexDirection: 'column', gap: 2, p: 3, overflow: 'auto' }}>
         <Tabs
           value={categoryTab}
           onChange={handleCategoryTabChange}

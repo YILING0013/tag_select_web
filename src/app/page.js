@@ -81,14 +81,14 @@ function App() {
       </Grid>
 
       {/* 第二行：主内容区域 */}
-      <Grid container spacing={0.5} sx={{ flex: 1, minHeight: 0 }}>
+      <Grid container spacing={0.5} sx={{ flex: 1,  minHeight: { xs: 550, sm: 0 }  }}>
         {/* 左侧分类标签页 */}
-        <Grid size={{ xs: 12, md: 8 }} sx={{ height: '100%' }}>
+        <Grid size={{ xs: 12, md: 8 }} sx={{ height: '100%',}}>
           <CategoryTabs onAddTag={handleAddTag} />
         </Grid>
 
         {/* 右侧侧边栏 */}
-        <Grid size={{ xs: 12, md: 4 }} sx={{ height: '100%' }}>
+        <Grid size={{ xs: 12, md: 4 }} sx={{ height: '100%',}}>
           <Sidebar onAddTag={handleAddTag}/>
         </Grid>
       </Grid>

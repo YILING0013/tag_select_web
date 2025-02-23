@@ -25,7 +25,6 @@ const TagItem = ({ tag, onUpdateTag, onDeleteTag, useRoundWeightSymbol }) => {
     if (tag.squareCount > 0) {
       onUpdateTag({ ...tag, squareCount: tag.squareCount - 1 });
     } else {
-      // 此处依然操作 curlyCount，渲染时根据 useRoundWeightSymbol 显示为 {} 或 ()
       onUpdateTag({ ...tag, curlyCount: tag.curlyCount + 1 });
     }
   };
@@ -73,15 +72,12 @@ const TagItem = ({ tag, onUpdateTag, onDeleteTag, useRoundWeightSymbol }) => {
 
 export const OutputSection = (props) => {
   const { tags, onUpdateTag, onDeleteTag, onReorderTags, onClearTags } = props;
-  // 新增状态：当前使用的加权符号类型，false：使用 {}，true：使用 ()
   const [useRoundWeightSymbol, setUseRoundWeightSymbol] = React.useState(false);
 
-  // 根据当前标签状态生成输出文本
   const getOutputText = () => {
     return tags
       .map(tag => {
         if (tag.curlyCount > 0) {
-          // 根据 useRoundWeightSymbol 决定输出符号
           const leftSymbol = useRoundWeightSymbol ? '(' : '{';
           const rightSymbol = useRoundWeightSymbol ? ')' : '}';
           return leftSymbol.repeat(tag.curlyCount) + tag.originalEnText + rightSymbol.repeat(tag.curlyCount);
@@ -96,16 +92,41 @@ export const OutputSection = (props) => {
 
   const handleCopy = () => {
     const text = getOutputText();
-    navigator.clipboard.writeText(text)
-      .then(() => {
-        alert('已复制到剪贴板！');
-      })
-      .catch(() => {
+
+    const fallbackCopy = () => {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+          alert('已复制到剪贴板！');
+        } else {
+          alert('复制失败');
+        }
+      } catch (err) {
         alert('复制失败');
-      });
+      }
+      document.body.removeChild(textarea);
+    };
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text)
+        .then(() => {
+          alert('已复制到剪贴板！');
+        })
+        .catch(() => {
+          fallbackCopy();
+        });
+    } else {
+      fallbackCopy();
+    }
   };
 
-  // 切换加权符号：将所有 {} 切换为 ()，后续点击加号按钮时改增加 ()（实际上依然操作 curlyCount，但渲染上显示为 ()）
   const handleToggleWeightSymbol = () => {
     setUseRoundWeightSymbol(prev => !prev);
   };
