@@ -22,6 +22,7 @@ export const Sidebar = (props) => {
   // D站Tag导入状态
   const [dsiteInput, setDsiteInput] = React.useState('');
   const [dsiteTags, setDsiteTags] = React.useState([]);
+  const [dsiteLoading, setDsiteLoading] = React.useState(false);
 
   // Tag搜索状态
   const [searchInput, setSearchInput] = React.useState('');
@@ -93,23 +94,116 @@ export const Sidebar = (props) => {
     setCustomTags([]);
   };
 
-  // ---------- D站Tag导入逻辑 ----------
+  // ---------- 前端HTML解析函数 ----------
+  const parseHtmlForTags = (htmlString) => {
+    // 创建一个临时的DOM解析器
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlString, 'text/html');
+    
+    // 查找所有具有 data-tag-name 属性的元素
+    const tagElements = doc.querySelectorAll('[data-tag-name]');
+    
+    const extractedTags = [];
+    tagElements.forEach(element => {
+      // 提取标签名，并将下划线替换为空格
+      const tagName = element.getAttribute('data-tag-name').replace(/_/g, ' ');
+      
+      // 提取其他信息
+      const isDeprecated = element.getAttribute('data-is-deprecated') === 'true';
+      const links = Array.from(element.querySelectorAll('a')).map(a => a.textContent.trim());
+      const postCountElement = element.querySelector('.post-count');
+      const postCount = postCountElement ? postCountElement.getAttribute('title') : null;
+      
+      extractedTags.push({
+        tag_name: tagName,
+        is_deprecated: isDeprecated,
+        links: links,
+        post_count: postCount
+      });
+    });
+    
+    return extractedTags;
+  };
+
+  // ---------- D站Tag导入逻辑（前端获取HTML版本）---------- 
   const handleLoadDsiteTags = async () => {
     if (!dsiteInput.trim()) return;
+    
+    setDsiteLoading(true);
     try {
-      const url = `/api/extract_tags?url=${encodeURIComponent(dsiteInput)}`;
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('D站Tag API error');
-      const data = await response.json();
-      const newTags = data.map(item => ({
-        originalEnText: item.tag_name,
-        cnText: item.translated_tag_name || item.tag_name,
+      // 前端直接获取HTML
+      console.log('正在获取HTML...');
+      const htmlResponse = await fetch(dsiteInput, {
+        method: 'GET',
+        mode: 'cors', // 可能需要CORS扩展或代理
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      });
+      
+      if (!htmlResponse.ok) {
+        throw new Error(`HTTP ${htmlResponse.status}: ${htmlResponse.statusText}`);
+      }
+      
+      const htmlContent = await htmlResponse.text();
+      console.log('HTML获取成功，开始解析...');
+      
+      // 前端解析HTML提取标签
+      const extractedTags = parseHtmlForTags(htmlContent);
+      console.log('解析到标签数量:', extractedTags.length);
+      
+      if (extractedTags.length === 0) {
+        alert('未找到任何标签，请检查URL是否正确');
+        return;
+      }
+      
+      // 提取标签名称用于翻译
+      const tagNames = extractedTags.map(tag => tag.tag_name);
+      
+      // 调用后端翻译API
+      console.log('正在翻译标签...');
+      const translateResponse = await fetch('/api/Tagtranslate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ texts: tagNames })
+      });
+      
+      if (!translateResponse.ok) {
+        throw new Error('翻译API调用失败');
+      }
+      
+      const translateData = await translateResponse.json();
+      const translatedTexts = translateData.translated_texts;
+      
+      // 组合翻译结果
+      const newTags = extractedTags.map((tag, index) => ({
+        originalEnText: tag.tag_name,
+        cnText: (translatedTexts && translatedTexts[index]) ? translatedTexts[index] : tag.tag_name,
         curlyCount: 0,
-        squareCount: 0
+        squareCount: 0,
+        is_deprecated: tag.is_deprecated,
+        post_count: tag.post_count
       }));
+      
       setDsiteTags(prev => [...prev, ...newTags]);
+      console.log('标签加载完成');
+      
     } catch (error) {
-      console.error(error);
+      console.error('D站标签加载失败:', error);
+      let errorMessage = '加载失败: ';
+      
+      if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+        errorMessage += '无法访问该网站，可能是CORS跨域问题。请尝试：\n' +
+                      '1. 安装CORS浏览器扩展\n' +
+                      '2. 使用代理服务\n' +
+                      '3. 或者检查网络连接';
+      } else {
+        errorMessage += error.message;
+      }
+      
+      alert(errorMessage);
+    } finally {
+      setDsiteLoading(false);
     }
   };
 
@@ -226,14 +320,27 @@ export const Sidebar = (props) => {
                 }}
               />
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Button variant="contained" onClick={handleLoadDsiteTags} size="small">
-                  解析
+                <Button 
+                  variant="contained" 
+                  onClick={handleLoadDsiteTags} 
+                  size="small"
+                  disabled={dsiteLoading}
+                >
+                  {dsiteLoading ? '加载中...' : '解析'}
                 </Button>
                 <Button variant="outlined" color="error" onClick={handleClearDsiteTags} size="small">
                   清空
                 </Button>
               </Box>
             </Box>
+            
+            {/* 使用提示 */}
+            <Box sx={{ p: 1, bgcolor: 'info.light', borderRadius: 1 }}>
+              <Typography variant="caption" sx={{ color: 'info.contrastText' }}>
+                💡 提示：该功能需可访问Danbooru，如遇问题，请安装CORS浏览器扩展或使用代理
+              </Typography>
+            </Box>
+            
             {/* 标签容器 */}
             <Box sx={tagContainerStyle}>
               {dsiteTags.map((tag, idx) => (
