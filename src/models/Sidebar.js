@@ -439,7 +439,7 @@ export const Sidebar = (props) => {
                 <Card variant="outlined" sx={{ p: 2 }}>
                   <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 500 }}>社区互动</Typography>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <Button variant="outlined" startIcon={<GroupIcon />} href="https://qm.qq.com/cgi-bin/qm/qr?k=GmMDP5LFpfQiHZ56AtUhAfOuyUKKS3CC" target="_blank" sx={{ justifyContent: 'flex-start' }}>
+                    <Button variant="outlined" startIcon={<GroupIcon />} href="http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=CdpNbaIcbz34wRENnz51fq4cmn8w97_u&authKey=lWSd%2BdH732ZphzYm6of0vZOq2k16qOUfHTK19kWRaJ73%2BdtcVBzWLHdYcVPo2Z5V&noverify=0&group_code=619176101" target="_blank" sx={{ justifyContent: 'flex-start' }}>
                       加入QQ群
                     </Button>
                     <Button variant="outlined" startIcon={<VideoLibraryIcon />} href="https://space.bilibili.com/487156342" target="_blank" sx={{ justifyContent: 'flex-start' }}>
