@@ -1,7 +1,7 @@
 // Sidebar.js
 import * as React from 'react';
 import { 
-  Card, CardContent, Tabs, Tab, Box, Typography, TextField, Button,
+  Card, CardContent, Tabs, Tab, Box, Typography, TextField, Button, Alert
 } from '@mui/material';
 
 import Link from '@mui/material/Link';
@@ -11,29 +11,28 @@ import GroupIcon from '@mui/icons-material/Group';
 import VideoLibraryIcon from '@mui/icons-material/VideoLibrary';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 
-export const Sidebar = (props) => {
-  const { onAddTag } = props;
+// 接收 setApiError 作为 prop
+export const Sidebar = ({ onAddTag, setApiError }) => {
   const [sidebarTab, setSidebarTab] = React.useState(3);
 
-  // 自定义模块状态
   const [customInput, setCustomInput] = React.useState('');
   const [customTags, setCustomTags] = React.useState([]);
+  const [customError, setCustomError] = React.useState(null); // 自定义模块的错误状态
 
-  // D站Tag导入状态
   const [dsiteInput, setDsiteInput] = React.useState('');
   const [dsiteTags, setDsiteTags] = React.useState([]);
   const [dsiteLoading, setDsiteLoading] = React.useState(false);
+  const [dsiteError, setDsiteError] = React.useState(null); // D站模块的错误状态
 
-  // Tag搜索状态
   const [searchInput, setSearchInput] = React.useState('');
   const [maxResults, setMaxResults] = React.useState('');
   const [searchTags, setSearchTags] = React.useState([]);
+  const [searchError, setSearchError] = React.useState(null); // 搜索模块的错误状态
 
   const handleSidebarTabChange = (event, newValue) => {
     setSidebarTab(newValue);
   };
 
-  // 统一标签容器的样式
   const tagContainerStyle = {
     flex: 1,
     minHeight: 0,
@@ -45,7 +44,6 @@ export const Sidebar = (props) => {
     bgcolor: 'background.paper'
   };
 
-  // 统一标签按钮的样式
   const tagButtonStyle = {
     m: 0.5,
     textTransform: 'none',
@@ -59,9 +57,9 @@ export const Sidebar = (props) => {
     }
   };
 
-  // ---------- 自定义模块逻辑 ----------
   const handleLoadCustomTags = async () => {
     if (!customInput.trim()) return;
+    setCustomError(null); // 重置错误
     const texts = customInput.split(',').map(s => s.trim()).filter(s => s);
     try {
       const response = await fetch('/api/Tagtranslate', {
@@ -69,7 +67,16 @@ export const Sidebar = (props) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ texts })
       });
-      if (!response.ok) throw new Error('Translation API error');
+
+      if (response.status === 403) {
+        const errorMsg = "翻译请求被拒绝，请先完成人机验证。";
+        setCustomError(errorMsg);
+        setApiError({ status: 403, message: errorMsg });
+        return;
+      }
+
+      if (!response.ok) throw new Error(`翻译API错误: ${response.statusText}`);
+
       const data = await response.json();
       const translatedTexts = data.translated_texts;
       const newTags = texts.map((text, index) => ({
@@ -80,6 +87,8 @@ export const Sidebar = (props) => {
       }));
       setCustomTags(prev => [...prev, ...newTags]);
     } catch (error) {
+      setCustomError(error.message);
+      // 失败时依然添加未翻译的tags
       const newTags = texts.map(text => ({
         originalEnText: text,
         cnText: text,
@@ -92,28 +101,20 @@ export const Sidebar = (props) => {
 
   const handleClearCustomTags = () => {
     setCustomTags([]);
+    setCustomError(null);
   };
 
-  // ---------- 前端HTML解析函数 ----------
   const parseHtmlForTags = (htmlString) => {
-    // 创建一个临时的DOM解析器
     const parser = new DOMParser();
     const doc = parser.parseFromString(htmlString, 'text/html');
-    
-    // 查找所有具有 data-tag-name 属性的元素
     const tagElements = doc.querySelectorAll('[data-tag-name]');
-    
     const extractedTags = [];
     tagElements.forEach(element => {
-      // 提取标签名，并将下划线替换为空格
       const tagName = element.getAttribute('data-tag-name').replace(/_/g, ' ');
-      
-      // 提取其他信息
       const isDeprecated = element.getAttribute('data-is-deprecated') === 'true';
       const links = Array.from(element.querySelectorAll('a')).map(a => a.textContent.trim());
       const postCountElement = element.querySelector('.post-count');
       const postCount = postCountElement ? postCountElement.getAttribute('title') : null;
-      
       extractedTags.push({
         tag_name: tagName,
         is_deprecated: isDeprecated,
@@ -121,47 +122,44 @@ export const Sidebar = (props) => {
         post_count: postCount
       });
     });
-    
     return extractedTags;
   };
 
-  // ---------- D站Tag导入逻辑（前端获取HTML版本）---------- 
   const handleLoadDsiteTags = async () => {
     if (!dsiteInput.trim()) return;
     
     setDsiteLoading(true);
+    setDsiteError(null); 
     try {
-      // 前端直接获取HTML
-      console.log('正在获取HTML...');
       const htmlResponse = await fetch(dsiteInput, {
         method: 'GET',
-        mode: 'cors', // 可能需要CORS扩展或代理
+        mode: 'cors',
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
       });
+      
+      if (htmlResponse.status === 403) {
+        const errorMsg = "访问被拒绝，请先完成人机验证。";
+        setDsiteError(errorMsg);
+        setApiError({ status: 403, message: errorMsg });
+        return;
+      }
       
       if (!htmlResponse.ok) {
         throw new Error(`HTTP ${htmlResponse.status}: ${htmlResponse.statusText}`);
       }
       
       const htmlContent = await htmlResponse.text();
-      console.log('HTML获取成功，开始解析...');
-      
-      // 前端解析HTML提取标签
       const extractedTags = parseHtmlForTags(htmlContent);
-      console.log('解析到标签数量:', extractedTags.length);
       
       if (extractedTags.length === 0) {
-        alert('未找到任何标签，请检查URL是否正确');
+        setDsiteError("未找到任何标签，请检查URL是否正确。");
         return;
       }
       
-      // 提取标签名称用于翻译
       const tagNames = extractedTags.map(tag => tag.tag_name);
       
-      // 调用后端翻译API
-      console.log('正在翻译标签...');
       const translateResponse = await fetch('/api/Tagtranslate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -175,7 +173,6 @@ export const Sidebar = (props) => {
       const translateData = await translateResponse.json();
       const translatedTexts = translateData.translated_texts;
       
-      // 组合翻译结果
       const newTags = extractedTags.map((tag, index) => ({
         originalEnText: tag.tag_name,
         cnText: (translatedTexts && translatedTexts[index]) ? translatedTexts[index] : tag.tag_name,
@@ -186,22 +183,13 @@ export const Sidebar = (props) => {
       }));
       
       setDsiteTags(prev => [...prev, ...newTags]);
-      console.log('标签加载完成');
       
     } catch (error) {
-      console.error('D站标签加载失败:', error);
-      let errorMessage = '加载失败: ';
-      
+      let errorMessage = '加载失败: ' + error.message;
       if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-        errorMessage += '无法访问该网站，可能是CORS跨域问题。请尝试：\n' +
-                      '1. 安装CORS浏览器扩展\n' +
-                      '2. 使用代理服务\n' +
-                      '3. 或者检查网络连接';
-      } else {
-        errorMessage += error.message;
+        errorMessage = '无法访问该网站，可能是CORS跨域问题或网络连接错误。';
       }
-      
-      alert(errorMessage);
+      setDsiteError(errorMessage);
     } finally {
       setDsiteLoading(false);
     }
@@ -209,23 +197,25 @@ export const Sidebar = (props) => {
 
   const handleClearDsiteTags = () => {
     setDsiteTags([]);
-  };
-
-  // ---------- Tag搜索逻辑 ----------
-  const buildSearchUrl = (type) => {
-    let url = `/search/${type}?query=${encodeURIComponent(searchInput)}`;
-    if (maxResults.trim()) {
-      url += `&max_results=${encodeURIComponent(maxResults)}`;
-    }
-    return url;
+    setDsiteError(null);
   };
 
   const handleSearch = async (type) => {
     if (!searchInput.trim()) return;
+    setSearchError(null); 
     try {
-      const url = buildSearchUrl(type);
+      const url = `/search/${type}?query=${encodeURIComponent(searchInput)}` + 
+                  (maxResults.trim() ? `&max_results=${encodeURIComponent(maxResults)}` : '');
       const response = await fetch(url);
-      if (!response.ok) throw new Error(`${type} search error`);
+
+      if (response.status === 403) {
+        const errorMsg = "搜索请求被拒绝，请先完成人机验证。";
+        setSearchError(errorMsg);
+        setApiError({ status: 403, message: errorMsg });
+        return;
+      }
+
+      if (!response.ok) throw new Error(`搜索失败，状态码: ${response.status}`);
       const data = await response.json();
       const newTags = data.map(item => {
         const key = Object.keys(item)[0];
@@ -238,178 +228,102 @@ export const Sidebar = (props) => {
       });
       setSearchTags(prev => [...prev, ...newTags]);
     } catch (error) {
-      console.error(error);
+      setSearchError(error.message);
     }
   };
 
-  const handleRegexSearch = () => handleSearch('regular_expression');
-  const handleFuzzySearch = () => handleSearch('fuzzy_search');
-  const handleExactSearch = () => handleSearch('exact_search');
-  const handleClearSearchTags = () => setSearchTags([]);
+  const handleClearSearchTags = () => {
+      setSearchTags([]);
+      setSearchError(null);
+  };
 
-  // ---------- 渲染各个模块 ----------
   const getSidebarTabContent = (index) => {
     switch (index) {
-      case 0: // 自定义选项卡
+      case 0:
         return (
           <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 2, p: 2 }}>
-            {/* 输入行 */}
             <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
               <Box sx={{ flex: 1 }}>
                 <TextField
-                  fullWidth
-                  multiline
-                  minRows={3}
-                  maxRows={5}
+                  fullWidth multiline minRows={3} maxRows={5}
                   placeholder="请在此输入你的tag串, tag将按照逗号划分开并添加为页面元素"
-                  variant="outlined"
-                  value={customInput}
-                  onChange={(e) => setCustomInput(e.target.value)}
-                  sx={{
-                    '& .MuiInputBase-root': {
-                      alignItems: 'flex-start',
-                      overflow: 'auto'
-                    }
-                  }}
+                  value={customInput} onChange={(e) => setCustomInput(e.target.value)}
                 />
               </Box>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Button variant="contained" onClick={handleLoadCustomTags} size="small">
-                  加载
-                </Button>
-                <Button variant="outlined" color="error" onClick={handleClearCustomTags} size="small">
-                  清空
-                </Button>
+                <Button variant="contained" onClick={handleLoadCustomTags} size="small">加载</Button>
+                <Button variant="outlined" color="error" onClick={handleClearCustomTags} size="small">清空</Button>
               </Box>
             </Box>
-            {/* 标签容器 */}
+            {customError && <Alert severity="error" sx={{ mt: 1 }}>{customError}</Alert>}
             <Box sx={tagContainerStyle}>
               {customTags.map((tag, idx) => (
-                <Button
-                  key={idx}
-                  variant="outlined"
-                  size="small"
-                  onClick={() => onAddTag && onAddTag(tag)}
-                  sx={tagButtonStyle}
-                >
+                <Button key={idx} variant="outlined" size="small" onClick={() => onAddTag && onAddTag(tag)} sx={tagButtonStyle}>
                   {`${tag.cnText} (${tag.originalEnText})`}
                 </Button>
               ))}
             </Box>
           </Box>
         );
-      case 1: // D站Tag导入选项卡
+      case 1:
         return (
           <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 2, p: 2 }}>
-            {/* 输入行 */}
             <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
               <TextField
-                fullWidth
-                multiline
-                minRows={3}
-                maxRows={4}
+                fullWidth multiline minRows={3} maxRows={4}
                 placeholder="D站图像网址示例：https://danbooru.donmai.us/posts/114514"
-                variant="outlined"
-                value={dsiteInput}
-                onChange={(e) => setDsiteInput(e.target.value)}
-                sx={{
-                  '& .MuiInputBase-root': {
-                    alignItems: 'flex-start',
-                    overflow: 'auto'
-                  }
-                }}
+                value={dsiteInput} onChange={(e) => setDsiteInput(e.target.value)}
               />
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Button 
-                  variant="contained" 
-                  onClick={handleLoadDsiteTags} 
-                  size="small"
-                  disabled={dsiteLoading}
-                >
+                <Button variant="contained" onClick={handleLoadDsiteTags} size="small" disabled={dsiteLoading}>
                   {dsiteLoading ? '加载中...' : '解析'}
                 </Button>
-                <Button variant="outlined" color="error" onClick={handleClearDsiteTags} size="small">
-                  清空
-                </Button>
+                <Button variant="outlined" color="error" onClick={handleClearDsiteTags} size="small">清空</Button>
               </Box>
             </Box>
-            
-            {/* 使用提示 */}
-            <Box sx={{ p: 1, bgcolor: 'info.light', borderRadius: 1 }}>
-              <Typography variant="caption" sx={{ color: 'info.contrastText' }}>
-                💡 提示：该功能需可访问Danbooru，如遇问题，请安装CORS浏览器扩展或使用代理
-              </Typography>
-            </Box>
-            
-            {/* 标签容器 */}
+            {dsiteError && <Alert severity="error" sx={{ mt: 1 }}>{dsiteError}</Alert>}
             <Box sx={tagContainerStyle}>
               {dsiteTags.map((tag, idx) => (
-                <Button
-                  key={idx}
-                  variant="outlined"
-                  size="small"
-                  onClick={() => onAddTag && onAddTag(tag)}
-                  sx={tagButtonStyle}
-                >
+                <Button key={idx} variant="outlined" size="small" onClick={() => onAddTag && onAddTag(tag)} sx={tagButtonStyle}>
                   {`${tag.cnText} (${tag.originalEnText})`}
                 </Button>
               ))}
             </Box>
           </Box>
         );
-      case 2: // Tag搜索选项卡
+      case 2:
         return (
           <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 2, p: 2 }}>
-            {/* 搜索条件行 */}
             <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
               <TextField
-                fullWidth
-                placeholder="搜索内容（中英文皆可）"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
+                fullWidth placeholder="搜索内容（中英文皆可）"
+                value={searchInput} onChange={(e) => setSearchInput(e.target.value)}
               />
               <TextField
-                placeholder="返回量"
-                value={maxResults}
-                onChange={(e) => setMaxResults(e.target.value)}
-                sx={{ width: 100 }}
+                placeholder="返回量" value={maxResults}
+                onChange={(e) => setMaxResults(e.target.value)} sx={{ width: 100 }}
               />
             </Box>
-            {/* 按钮组 */}
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-              <Button variant="contained" onClick={handleRegexSearch} size="small">
-                正则
-              </Button>
-              <Button variant="contained" onClick={handleFuzzySearch} size="small">
-                模糊
-              </Button>
-              <Button variant="contained" onClick={handleExactSearch} size="small">
-                精确
-              </Button>
-              <Button variant="outlined" color="error" onClick={handleClearSearchTags} size="small">
-                清空
-              </Button>
+              <Button variant="contained" onClick={() => handleSearch('regular_expression')} size="small">正则</Button>
+              <Button variant="contained" onClick={() => handleSearch('fuzzy_search')} size="small">模糊</Button>
+              <Button variant="contained" onClick={() => handleSearch('exact_search')} size="small">精确</Button>
+              <Button variant="outlined" color="error" onClick={handleClearSearchTags} size="small">清空</Button>
             </Box>
-            {/* 标签容器 */}
+            {searchError && <Alert severity="error" sx={{ mt: 1 }}>{searchError}</Alert>}
             <Box sx={tagContainerStyle}>
               {searchTags.map((tag, idx) => (
-                <Button
-                  key={idx}
-                  variant="outlined"
-                  size="small"
-                  onClick={() => onAddTag && onAddTag(tag)}
-                  sx={tagButtonStyle}
-                >
+                <Button key={idx} variant="outlined" size="small" onClick={() => onAddTag && onAddTag(tag)} sx={tagButtonStyle}>
                   {`${tag.cnText} (${tag.originalEnText})`}
                 </Button>
               ))}
             </Box>
           </Box>
         );
-      case 3: // 关于选项卡
+      case 3:
       default:
         return (
-          <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 2, p: 3, overflow: 'auto' }}>
+            <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 2, p: 3, overflow: 'auto' }}>
             <Typography variant="h5" sx={{ fontWeight: 600, color: 'primary.main', borderBottom: '2px solid', borderColor: 'primary.main', pb: 1 }}>
               关于我们
             </Typography>
